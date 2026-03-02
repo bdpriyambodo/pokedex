@@ -33,7 +33,7 @@ func startRepl() {
 	fmt.Println("Welcome to the Pokedex!")
 	fmt.Println("Usage:")
 
-	for key, _ := range commandList {
+	for key := range commandList {
 		fmt.Println(commandList[key].name, ":", commandList[key].description)
 	}
 
@@ -43,14 +43,24 @@ func startRepl() {
 
 		line := scanner.Text()
 
-		switch line {
-		case "exit":
-			commandList["exit"].callback()
-		case "help":
-			commandList["help"].callback()
-		default:
+		word := cleanInput(line)[0]
+
+		cmd, exist := commandList[word]
+
+		if exist {
+			commandList[cmd.name].callback()
+		} else {
 			fmt.Println("Unknown command")
 		}
+
+		// switch word {
+		// case "exit":
+		// 	commandList["exit"].callback()
+		// case "help":
+		// 	commandList["help"].callback()
+		// default:
+		// 	fmt.Println("Unknown command")
+		// }
 
 		fmt.Print("\nPokedex > ")
 	}
