@@ -5,17 +5,21 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/bdpriyambodo/pokedexcli/internal/pokeapi"
+	"github.com/bdpriyambodo/pokedexcli/internal/pokecache"
 )
 
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(offset int, url string) error
+	callback    func(existingcache *pokecache.Cache, offset int, url string) error
 }
 
 func startRepl() {
+
+	existingcache := pokecache.NewCache(5 * time.Second)
 
 	url := "https://pokeapi.co/api/v2/location-area/"
 	offset := 0
@@ -65,17 +69,17 @@ func startRepl() {
 
 		if exist {
 			if !(cmd.name == "map") && !(cmd.name == "mapb") {
-				commandList[cmd.name].callback(offset, url)
+				commandList[cmd.name].callback(existingcache, offset, url)
 			} else if cmd.name == "map" {
 				offset = next_offset
-				commandList[cmd.name].callback(offset, url)
+				commandList[cmd.name].callback(existingcache, offset, url)
 				next_offset += 20
 			} else if cmd.name == "mapb" {
 				if offset <= 0 {
 					fmt.Println("You're already on the first page")
 				} else {
 					offset -= 20
-					commandList[cmd.name].callback(offset, url)
+					commandList[cmd.name].callback(existingcache, offset, url)
 					next_offset -= 20
 				}
 			}
@@ -96,21 +100,38 @@ func startRepl() {
 	}
 }
 
-func commandExit(offset int, url string) error {
+func commandExit(existingcache *pokecache.Cache, offset int, url string) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(offset int, url string) error {
+func commandHelp(existingcache *pokecache.Cache, offset int, url string) error {
 	fmt.Println("Please type available commands to use the Pokedex")
 	return nil
 }
 
-func commandMap(offset int, url string) error {
+func commandMap(existingcache *pokecache.Cache, offset int, url string) error {
 	// fmt.Println("Here are the available area locations:")
+
 	if offset >= 0 {
-		pokeapi.PokeApiData(offset, url)
+		fullUrl := url + fmt.Sprintf("?offset=%d&limit=20", offset)
+		val, ok := existingcache.Get(fullUrl)
+
+		if ok {
+			names, _ := pokeapi.PokeApiData(val)
+			for _, name := range names {
+				fmt.Println(name)
+			}
+		} else {
+			body := pokeapi.PokeApiRaw(offset, url)
+			names, _ := pokeapi.PokeApiData(body)
+			for _, name := range names {
+				fmt.Println(name)
+			}
+			existingcache.Add(fullUrl, body)
+		}
+
 	} else {
 		fmt.Println("You're already on the first page")
 	}

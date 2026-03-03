@@ -18,7 +18,7 @@ type LocationAreaResponse struct {
 	} `json:"results"`
 }
 
-func PokeApiData(offset int, url string) {
+func PokeApiRaw(offset int, url string) []byte {
 
 	fullUrl := url + fmt.Sprintf("?offset=%d&limit=20", offset)
 
@@ -38,13 +38,18 @@ func PokeApiData(offset int, url string) {
 		log.Fatal(err)
 	}
 
+	return body
+
 	// fmt.Println("body:", string(body))
 	// fmt.Println("err:", err)
 	// fmt.Println("===============================")
 
+}
+
+func PokeApiData(body []byte) ([]string, error) {
 	result := LocationAreaResponse{}
 
-	err = json.Unmarshal(body, &result)
+	err := json.Unmarshal(body, &result)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -52,8 +57,15 @@ func PokeApiData(offset int, url string) {
 	// fmt.Println("result:", result)
 	// fmt.Println("===============================")
 
+	// for _, area := range result.Results {
+	// 	fmt.Println(area.Name)
+	// }
+
+	// var names []string
+	names := []string{}
 	for _, area := range result.Results {
-		fmt.Println(area.Name)
+		names = append(names, area.Name)
 	}
 
+	return names, nil
 }
