@@ -18,11 +18,11 @@ type LocationAreaResponse struct {
 	} `json:"results"`
 }
 
-func PokeApiRaw(offset int, url string) []byte {
+func PokeApiRaw(client *http.Client, offset int, url string) ([]byte, error) {
 
 	fullUrl := url + fmt.Sprintf("?offset=%d&limit=20", offset)
 
-	res, err := http.Get(fullUrl)
+	res, err := client.Get(fullUrl)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -38,7 +38,7 @@ func PokeApiRaw(offset int, url string) []byte {
 		log.Fatal(err)
 	}
 
-	return body
+	return body, err
 
 	// fmt.Println("body:", string(body))
 	// fmt.Println("err:", err)

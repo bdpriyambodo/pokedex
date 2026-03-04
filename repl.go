@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -124,7 +125,8 @@ func commandMap(existingcache *pokecache.Cache, offset int, url string) error {
 				fmt.Println(name)
 			}
 		} else {
-			body := pokeapi.PokeApiRaw(offset, url)
+			client := &http.Client{}
+			body, _ := pokeapi.PokeApiRaw(client, offset, url)
 			names, _ := pokeapi.PokeApiData(body)
 			for _, name := range names {
 				fmt.Println(name)
