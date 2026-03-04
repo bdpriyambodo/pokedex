@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"fmt"
+	"math/rand/v2"
 	"net/http"
 	"os"
 	"strings"
@@ -15,14 +16,23 @@ import (
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(existingcache *pokecache.Cache, offset int, url string, input string) error
+	callback    func(pokedex map[string]*Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error
+}
+
+type Pokemon struct {
+	name   string
+	caught int
 }
 
 func startRepl() {
 
 	existingcache := pokecache.NewCache(5 * time.Second)
 
-	url := "https://pokeapi.co/api/v2/location-area/"
+	pokedex := make(map[string]*Pokemon)
+
+	// testurl := "https://pokeapi.co/api/v2/location-area/"
+	// fmt.Println(testurl)
+	url := "https://pokeapi.co/api/v2/"
 	offset := 0
 	next_offset := 0
 
@@ -52,6 +62,11 @@ func startRepl() {
 			description: "List all the Pokemon located in the specified area",
 			callback:    commandExplore,
 		},
+		"catch": {
+			name:        "catch",
+			description: "Catch pokemon!",
+			callback:    commandCatch,
+		},
 	}
 
 	scanner := bufio.NewScanner(os.Stdin)
@@ -80,17 +95,17 @@ func startRepl() {
 
 		if exist {
 			if !(cmd.name == "map") && !(cmd.name == "mapb") {
-				commandList[cmd.name].callback(existingcache, offset, url, input)
+				commandList[cmd.name].callback(pokedex, existingcache, offset, url, input)
 			} else if cmd.name == "map" {
 				offset = next_offset
-				commandList[cmd.name].callback(existingcache, offset, url, input)
+				commandList[cmd.name].callback(pokedex, existingcache, offset, url, input)
 				next_offset += 20
 			} else if cmd.name == "mapb" {
 				if offset <= 0 {
 					fmt.Println("You're already on the first page")
 				} else {
 					offset -= 20
-					commandList[cmd.name].callback(existingcache, offset, url, input)
+					commandList[cmd.name].callback(pokedex, existingcache, offset, url, input)
 					next_offset -= 20
 				}
 			}
@@ -111,22 +126,22 @@ func startRepl() {
 	}
 }
 
-func commandExit(existingcache *pokecache.Cache, offset int, url string, input string) error {
+func commandExit(pokedex map[string]*Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(existingcache *pokecache.Cache, offset int, url string, input string) error {
+func commandHelp(pokedex map[string]*Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error {
 	fmt.Println("Please type available commands to use the Pokedex")
 	return nil
 }
 
-func commandMap(existingcache *pokecache.Cache, offset int, url string, input string) error {
+func commandMap(pokedex map[string]*Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error {
 	// fmt.Println("Here are the available area locations:")
+	fullUrl := url + "location-area/" + fmt.Sprintf("?offset=%d&limit=20", offset)
 
 	if offset >= 0 {
-		fullUrl := url + fmt.Sprintf("?offset=%d&limit=20", offset)
 		val, ok := existingcache.Get(fullUrl)
 
 		if ok {
@@ -136,7 +151,6 @@ func commandMap(existingcache *pokecache.Cache, offset int, url string, input st
 			}
 		} else {
 			client := &http.Client{}
-			fullUrl := url + fmt.Sprintf("?offset=%d&limit=20", offset)
 
 			body, _ := pokeapi.PokeApiRaw(client, fullUrl)
 			names, _ := pokeapi.PokeApiLocationArea(body)
@@ -152,8 +166,8 @@ func commandMap(existingcache *pokecache.Cache, offset int, url string, input st
 	return nil
 }
 
-func commandExplore(existingcache *pokecache.Cache, offset int, url string, input string) error {
-	fullUrl := url + input
+func commandExplore(pokedex map[string]*Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error {
+	fullUrl := url + "location-area/" + input
 
 	val, ok := existingcache.Get(fullUrl)
 
@@ -178,6 +192,52 @@ func commandExplore(existingcache *pokecache.Cache, offset int, url string, inpu
 	}
 
 	return nil
+}
+
+func commandCatch(pokedex map[string]*Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error {
+	fullUrl := url + "pokemon/" + input
+	// fmt.Println(fullUrl)
+
+	fmt.Printf("Throwing a Pokeball at %s...\n", input)
+
+	randNumber := rand.IntN(250)
+	var baseExp int
+
+	val, ok := existingcache.Get(fullUrl)
+
+	if ok {
+		baseExp, _ = pokeapi.PokeApiPokemonCatch(val)
+	} else {
+		client := &http.Client{}
+		body, _ := pokeapi.PokeApiRaw(client, fullUrl)
+		baseExp, _ = pokeapi.PokeApiPokemonCatch(body)
+		existingcache.Add(fullUrl, body)
+
+	}
+
+	fmt.Println("random number:", randNumber)
+	fmt.Println("base experience: ", baseExp)
+
+	if randNumber > baseExp {
+		fmt.Println(input, "was caught!")
+		pokemon, ok := pokedex[input]
+		if ok {
+			pokemon.caught += 1
+
+		} else {
+			newPokemon := Pokemon{
+				name:   input,
+				caught: 1,
+			}
+			pokedex[input] = &newPokemon
+		}
+		// fmt.Println(input, pokedex[input].caught)
+	} else {
+		fmt.Println(input, "escaped!")
+	}
+
+	return nil
+
 }
 
 func cleanInput(text string) []string {
