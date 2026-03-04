@@ -42,7 +42,7 @@ func TestPokeApiRaw(t *testing.T) {
 
 			client := server.Client()
 
-			body, err := PokeApiRaw(client, tc.offset, server.URL)
+			body, err := PokeApiRaw(client, server.URL)
 
 			if tc.expectError {
 				if err == nil {
@@ -96,7 +96,7 @@ func TestPokeApiData(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		actual, err := PokeApiData(tc.input)
+		actual, err := PokeApiLocationArea(tc.input)
 
 		if err != nil {
 			t.Fatalf("unexpected error: %v", err)
