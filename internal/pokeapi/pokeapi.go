@@ -2,6 +2,7 @@ package pokeapi
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -375,18 +376,24 @@ func PokeApiRaw(client *http.Client, fullUrl string) ([]byte, error) {
 
 	res, err := client.Get(fullUrl)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Printf("network error: %s\n", err)
+		return nil, fmt.Errorf("network error: %w", err)
 	}
+	defer res.Body.Close()
 
 	// fmt.Println("res:", res)
 	// fmt.Println("err:", err)
 	// fmt.Println("===============================")
 
 	body, err := io.ReadAll(res.Body)
-	res.Body.Close()
 
 	if err != nil {
-		log.Fatal(err)
+		// fmt.Printf("failed to read body: %s", err)
+		return nil, fmt.Errorf("failed to read body: %w", err)
+	}
+
+	if res.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("bad status: %d %s, body: %s", res.StatusCode, res.Status, string(body))
 	}
 
 	return body, err

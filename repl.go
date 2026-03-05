@@ -78,8 +78,13 @@ func startRepl() {
 		},
 		"inspect": {
 			name:        "inspect",
-			description: "Provide info on caught Pokemon!",
+			description: "Provide info on caught Pokemon",
 			callback:    commandInspect,
+		},
+		"pokedex": {
+			name:        "pokedex",
+			description: "List all pokemons you have in Pokedex",
+			callback:    commandPokedex,
 		},
 	}
 
@@ -223,7 +228,16 @@ func commandCatch(pokedex map[string]*pokeapi.Pokemon, existingcache *pokecache.
 		ptrPokemon, _ = pokeapi.PokeApiPokemonCatch(val)
 	} else {
 		client := &http.Client{}
-		body, _ := pokeapi.PokeApiRaw(client, fullUrl)
+		// body, _ := pokeapi.PokeApiRaw(client, fullUrl)
+
+		body, err := pokeapi.PokeApiRaw(client, fullUrl)
+		if err != nil {
+			fmt.Println("There is no pokemon:", input)
+			fmt.Println(err)
+
+			return nil
+		}
+
 		ptrPokemon, _ = pokeapi.PokeApiPokemonCatch(body)
 		existingcache.Add(fullUrl, body)
 
@@ -234,6 +248,7 @@ func commandCatch(pokedex map[string]*pokeapi.Pokemon, existingcache *pokecache.
 
 	if randNumber > ptrPokemon.BaseExperience {
 		fmt.Println(input, "was caught!")
+		fmt.Println("You mau now inspect it with inspect command")
 		pokemon, ok := pokedex[input]
 		if ok {
 			pokemon.Caught += 1
@@ -277,6 +292,15 @@ func commandInspect(pokedex map[string]*pokeapi.Pokemon, existingcache *pokecach
 		fmt.Println("you have not caught that pokemon")
 	}
 
+	return nil
+}
+
+func commandPokedex(pokedex map[string]*pokeapi.Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error {
+	fmt.Println("Your Pokedex:")
+	for name := range pokedex {
+		fmt.Printf(" -%s\n", name)
+	}
+	fmt.Println("")
 	return nil
 }
 
