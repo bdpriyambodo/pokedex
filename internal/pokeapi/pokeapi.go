@@ -7,6 +7,21 @@ import (
 	"net/http"
 )
 
+type Pokemon struct {
+	Name           string
+	BaseExperience int
+	Caught         int
+	Height         int
+	Weight         int
+	Hp             int
+	Attack         int
+	Defence        int
+	SpecialAttack  int
+	SpecialDefence int
+	Speed          int
+	TypeTrait      []string
+}
+
 type LocationAreaResponse struct {
 	Count    int    `json:"count"`
 	Next     string `json:"next"`
@@ -430,7 +445,7 @@ func PokeApiPokemonInArea(body []byte) ([]string, error) {
 	return names, nil
 }
 
-func PokeApiPokemonCatch(body []byte) (int, error) {
+func PokeApiPokemonCatch(body []byte) (*Pokemon, error) {
 	result := PokemonResponse{}
 
 	err := json.Unmarshal(body, &result)
@@ -438,6 +453,37 @@ func PokeApiPokemonCatch(body []byte) (int, error) {
 		log.Fatal(err)
 	}
 
-	return result.BaseExperience, nil
+	p := Pokemon{}
+
+	p.Name = result.Name
+	p.Height = result.Height
+	p.Weight = result.Weight
+	p.BaseExperience = result.BaseExperience
+
+	// fmt.Println(result.Height)
+	// fmt.Println(result.Weight)
+
+	for _, s := range result.Stats {
+		switch s.Stat.Name {
+		case "hp":
+			p.Hp = s.BaseStat
+		case "attack":
+			p.Attack = s.BaseStat
+		case "defense":
+			p.Defence = s.BaseStat
+		case "pecial-attack":
+			p.SpecialAttack = s.BaseStat
+		case "special-defense":
+			p.SpecialDefence = s.BaseStat
+		case "speed":
+			p.Speed = s.BaseStat
+		}
+	}
+
+	for _, t := range result.Types {
+		p.TypeTrait = append(p.TypeTrait, t.Type.Name)
+	}
+
+	return &p, nil
 
 }

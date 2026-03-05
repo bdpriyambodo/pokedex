@@ -16,19 +16,28 @@ import (
 type cliCommand struct {
 	name        string
 	description string
-	callback    func(pokedex map[string]*Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error
+	callback    func(pokedex map[string]*pokeapi.Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error
 }
 
-type Pokemon struct {
-	name   string
-	caught int
-}
+// type Pokemon struct {
+// 	name   string
+// 	caught int
+// 	height int
+// 	weight int
+// 	hp int
+// 	attack int
+// 	defence int
+// 	specialAttack int
+// 	specialDefence int
+// 	speed int
+// 	typeTrait []string
+// }
 
 func startRepl() {
 
 	existingcache := pokecache.NewCache(5 * time.Second)
 
-	pokedex := make(map[string]*Pokemon)
+	pokedex := make(map[string]*pokeapi.Pokemon)
 
 	// testurl := "https://pokeapi.co/api/v2/location-area/"
 	// fmt.Println(testurl)
@@ -66,6 +75,11 @@ func startRepl() {
 			name:        "catch",
 			description: "Catch pokemon!",
 			callback:    commandCatch,
+		},
+		"inspect": {
+			name:        "inspect",
+			description: "Provide info on caught Pokemon!",
+			callback:    commandInspect,
 		},
 	}
 
@@ -126,18 +140,18 @@ func startRepl() {
 	}
 }
 
-func commandExit(pokedex map[string]*Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error {
+func commandExit(pokedex map[string]*pokeapi.Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error {
 	fmt.Println("Closing the Pokedex... Goodbye!")
 	os.Exit(0)
 	return nil
 }
 
-func commandHelp(pokedex map[string]*Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error {
+func commandHelp(pokedex map[string]*pokeapi.Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error {
 	fmt.Println("Please type available commands to use the Pokedex")
 	return nil
 }
 
-func commandMap(pokedex map[string]*Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error {
+func commandMap(pokedex map[string]*pokeapi.Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error {
 	// fmt.Println("Here are the available area locations:")
 	fullUrl := url + "location-area/" + fmt.Sprintf("?offset=%d&limit=20", offset)
 
@@ -166,7 +180,7 @@ func commandMap(pokedex map[string]*Pokemon, existingcache *pokecache.Cache, off
 	return nil
 }
 
-func commandExplore(pokedex map[string]*Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error {
+func commandExplore(pokedex map[string]*pokeapi.Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error {
 	fullUrl := url + "location-area/" + input
 
 	val, ok := existingcache.Get(fullUrl)
@@ -194,42 +208,44 @@ func commandExplore(pokedex map[string]*Pokemon, existingcache *pokecache.Cache,
 	return nil
 }
 
-func commandCatch(pokedex map[string]*Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error {
+func commandCatch(pokedex map[string]*pokeapi.Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error {
 	fullUrl := url + "pokemon/" + input
 	// fmt.Println(fullUrl)
 
 	fmt.Printf("Throwing a Pokeball at %s...\n", input)
 
 	randNumber := rand.IntN(250)
-	var baseExp int
+	var ptrPokemon *pokeapi.Pokemon
 
 	val, ok := existingcache.Get(fullUrl)
 
 	if ok {
-		baseExp, _ = pokeapi.PokeApiPokemonCatch(val)
+		ptrPokemon, _ = pokeapi.PokeApiPokemonCatch(val)
 	} else {
 		client := &http.Client{}
 		body, _ := pokeapi.PokeApiRaw(client, fullUrl)
-		baseExp, _ = pokeapi.PokeApiPokemonCatch(body)
+		ptrPokemon, _ = pokeapi.PokeApiPokemonCatch(body)
 		existingcache.Add(fullUrl, body)
 
 	}
 
-	fmt.Println("random number:", randNumber)
-	fmt.Println("base experience: ", baseExp)
+	// fmt.Println("random number:", randNumber)
+	// fmt.Println("base experience: ", ptrPokemon.BaseExperience)
 
-	if randNumber > baseExp {
+	if randNumber > ptrPokemon.BaseExperience {
 		fmt.Println(input, "was caught!")
 		pokemon, ok := pokedex[input]
 		if ok {
-			pokemon.caught += 1
+			pokemon.Caught += 1
 
 		} else {
-			newPokemon := Pokemon{
-				name:   input,
-				caught: 1,
-			}
-			pokedex[input] = &newPokemon
+			// newPokemon := pokeapi.Pokemon{
+			// 	Name:   input,
+			// 	Caught: 1,
+			// }
+			// pokedex[input] = &newPokemon
+			pokedex[input] = ptrPokemon
+			ptrPokemon.Caught += 1
 		}
 		// fmt.Println(input, pokedex[input].caught)
 	} else {
@@ -238,6 +254,30 @@ func commandCatch(pokedex map[string]*Pokemon, existingcache *pokecache.Cache, o
 
 	return nil
 
+}
+
+func commandInspect(pokedex map[string]*pokeapi.Pokemon, existingcache *pokecache.Cache, offset int, url string, input string) error {
+	pokemon, ok := pokedex[input]
+	if ok {
+		fmt.Println("Name:", input)
+		fmt.Printf("Height: %d\n", pokemon.Height)
+		fmt.Printf("Weight: %d\n", pokemon.Weight)
+		fmt.Println("Stats:")
+		fmt.Printf("	-hp: %d\n", pokemon.Hp)
+		fmt.Printf("	-attack: %d\n", pokemon.Attack)
+		fmt.Printf("	-defence: %d\n", pokemon.Hp)
+		fmt.Printf("	-special-attack: %d\n", pokemon.SpecialAttack)
+		fmt.Printf("	-special-defence: %d\n", pokemon.SpecialDefence)
+		fmt.Println(("Types:"))
+		for _, text := range pokemon.TypeTrait {
+			fmt.Printf("	-%s\n", text)
+		}
+		fmt.Printf("Caught: %d\n", pokemon.Caught)
+	} else {
+		fmt.Println("you have not caught that pokemon")
+	}
+
+	return nil
 }
 
 func cleanInput(text string) []string {
